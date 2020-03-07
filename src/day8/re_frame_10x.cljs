@@ -7,7 +7,6 @@
             [day8.re-frame-10x.db :as trace.db]
             [re-frame.trace :as trace :include-macros true]
             [clojure.string :as str]
-            [reagent.interop :refer-macros [$ $!]]
             [reagent.impl.util :as util]
             [reagent.impl.component :as component]
             [reagent.impl.batching :as batch]
@@ -22,10 +21,10 @@
 ;; from https://github.com/reagent-project/reagent/blob/3fd0f1b1d8f43dbf169d136f0f905030d7e093bd/src/reagent/impl/component.cljs#L274
 (defn fiber-component-path [fiber]
   (let [name   (some-> fiber
-                       ($ :type)
-                       ($ :displayName))
+                       (gob/get :type)
+                       (gob/get :displayName))
         parent (some-> fiber
-                       ($ :return))
+                       (gob/get :return))
         path   (some-> parent
                        fiber-component-path
                        (str " > "))
@@ -34,7 +33,7 @@
 
 (defn component-path [c]
   ;; Alternative branch for React 16
-  (if-let [fiber (some-> c ($ :_reactInternalFiber))]
+  (if-let [fiber (some-> c (gob/get :_reactInternalFiber))]
     (fiber-component-path fiber)
     (component/component-path c)))
 
@@ -58,13 +57,13 @@
                           :operation (operation-name c)}
                          (if util/*non-reactive*
                            (reagent.impl.component/do-render c)
-                           (let [rat        ($ c :cljsRatom)
+                           (let [rat        (gob/get c :cljsRatom)
                                  _          (batch/mark-rendered c)
                                  res        (if (nil? rat)
                                               (ratom/run-in-reaction #(reagent.impl.component/do-render c) c "cljsRatom"
                                                                      batch/queue-render reagent.impl.component/rat-opts)
                                               (._run rat false))
-                                 cljs-ratom ($ c :cljsRatom)] ;; actually a reaction
+                                 cljs-ratom (gob/get c :cljsRatom)] ;; actually a reaction
                              (trace/merge-trace!
                                {:tags {:reaction      (interop/reagent-id cljs-ratom)
                                        :input-signals (when cljs-ratom
@@ -101,7 +100,7 @@
                        (trace/with-trace {:op-type   key
                                           :operation (last (str/split (comp-name c) #" > "))
                                           :tags      {:component-path (component-path c)
-                                                      :reaction       (interop/reagent-id ($ c :cljsRatom))}})
+                                                      :reaction       (interop/reagent-id (gob/get c :cljsRatom))}})
                        (.call (real-custom-wrapper key f) c c)))
 
               (real-custom-wrapper key f))))
